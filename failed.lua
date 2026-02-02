@@ -2,7 +2,7 @@ function failed_load()
 	gamestate = "failed"
 	tetribodies = {} -- CLEAR ALL
 	tetrishapes = {} -- PIECES
-	love.audio.play(gameover2)
+	gameover2:play()
 end
 
 function failed_draw()
@@ -86,7 +86,7 @@ function failed_checkhighscores()
 			highscorename[i] = ""
 			highscore[i] = scorescore
 			cursorblink = true
-			love.audio.play(highscoreintro)
+			highscoreintro:play()
 			highscoremusicstart = love.timer.getTime()
 			musicchanged = false
 			gamestate = "highscoreentry"
@@ -96,7 +96,7 @@ function failed_checkhighscores()
 	if highscoreno == 0 then--no new highscore
 		gamestate = "menu"
 		if musicno < 4 then
-			love.audio.play(music[musicno])
+			music[musicno]:play()
 		end
 	end
 end

@@ -15,11 +15,11 @@ function rocket_load()
 	for i = 4, 1, -1 do
 		if scorescore >= rocketscores[i] then
 			if i < 4 then
-				love.audio.stop(musicrocket1to3)
-				love.audio.play(musicrocket1to3)
+				musicrocket1to3:stop()
+				musicrocket1to3:play()
 			else
-				love.audio.stop(musicrocket4)
-				love.audio.play(musicrocket4)
+				musicrocket4:stop()
+				musicrocket4:play()
 			end
 			rockettimer = love.timer.getTime()
 			gamestate = "rocket"..tostring(i)
@@ -76,7 +76,7 @@ function rocket_draw()
 	--fire
 	if gamestate == "rocket4" then
 		if timelapsed > 13 then
-			if math.mod( math.floor(timelapsed*8), 2) == 0 then
+			if math.fmod( math.floor(timelapsed*8), 2) == 0 then
 				love.graphics.draw( firebig1, 68*scale, round(rocketpos*scale), 0, scale, scale)
 			else
 				love.graphics.draw( firebig2, 68*scale, round(rocketpos*scale), 0, scale, scale)
@@ -84,7 +84,7 @@ function rocket_draw()
 		end
 	else
 		if timelapsed > 8.5 then
-			if math.mod( math.floor(timelapsed*8), 2) == 0 then
+			if math.fmod( math.floor(timelapsed*8), 2) == 0 then
 				love.graphics.draw( fire1, 77*scale, round(rocketpos*scale), 0, scale, scale)
 			else
 				love.graphics.draw( fire2, 76*scale, round(rocketpos*scale), 0, scale, scale)
@@ -122,19 +122,19 @@ function rocket_draw()
 	--smoke
 	if gamestate == "rocket4" then
 		if timelapsed > 3 and timelapsed < 8 then
-			if math.mod( math.floor(timelapsed*6), 2) == 0 then
+			if math.fmod( math.floor(timelapsed*6), 2) == 0 then
 				love.graphics.draw( smoke1left, 50*scale, 106*scale, 0, scale, scale)
 				love.graphics.draw( smoke1right, 92*scale, 106*scale, 0, scale, scale)
 			end
 		elseif timelapsed > 8 and timelapsed < 13 then
-			if math.mod( math.floor(timelapsed*6), 2) == 0 then
+			if math.fmod( math.floor(timelapsed*6), 2) == 0 then
 				love.graphics.draw( smoke2left, 44*scale, 98*scale, 0, scale, scale)
 				love.graphics.draw( smoke2right, 92*scale, 98*scale, 0, scale, scale)
 			end
 		end
 	else
 		if timelapsed > 3 and timelapsed < 8.5 then
-			if math.mod( math.floor(timelapsed*6), 2) == 0 then
+			if math.fmod( math.floor(timelapsed*6), 2) == 0 then
 				love.graphics.draw( smoke1left, 56*scale, 106*scale, 0, scale, scale)
 				love.graphics.draw( smoke1right, 86*scale, 106*scale, 0, scale, scale)
 			end

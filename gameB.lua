@@ -228,25 +228,25 @@ function gameB_draw()
 	love.graphics.print( linesscore, 136*scale + offsetX, 80*scale, 0, scale)
 	-----------------------------------------------
 	
-	love.graphics.setColor(255, 0, 0)
+	love.graphics.setColor(1, 0, 0)
 
 	--DEBUG--
-	
+
 		for i,v in pairs(tetribodies) do
 			x, y = v:getWorldCenter( )
-			love.graphics.point(x, y)
+			love.graphics.points(x, y)
 			for k,l in pairs(tetrishapes[i]) do
 				points = {l:getPoints()}
 				for j = 1, #points, 2 do
 					points[j] = points[j] + x
 					points[j+1] = points[j+1] + y
 				end
-				
+
 				love.graphics.polygon("line",unpack(points))
 			end
 		end
-	
-	love.graphics.setColor(255, 255, 255)
+
+	love.graphics.setColor(1, 1, 1)
 	
 	--FULLSCREEN OFFSET
 	if fullscreen then
@@ -273,22 +273,22 @@ function gameB_update(dt)
 	if gamestate == "gameB" then
 		if love.keyboard.isDown( "x" ) then
 			if tetribodies[1]:getAngularVelocity() < 3 then
-				tetribodies[1]:applyTorque( 70 )
+				tetribodies[1]:applyTorque( 7000 )
 			end
 		end
 		if love.keyboard.isDown( "y" ) or love.keyboard.isDown( "z" ) or love.keyboard.isDown( "w" ) then
 			if tetribodies[1]:getAngularVelocity() > -3 then
-				tetribodies[1]:applyTorque( -70 )
+				tetribodies[1]:applyTorque( -7000 )
 			end
 		end
 	
 		if love.keyboard.isDown( "left" ) then
 			local x, y = tetribodies[1]:getWorldCenter()
-			tetribodies[1]:applyForce( -70, 0, x, y )
+			tetribodies[1]:applyForce( -300, 0, x, y )
 		end
 		if love.keyboard.isDown( "right" ) then
 			local x, y = tetribodies[1]:getWorldCenter()
-			tetribodies[1]:applyForce( 70, 0, x, y )
+			tetribodies[1]:applyForce( 300, 0, x, y )
 		end
 		
 		local x, y = tetribodies[1]:getLinearVelocity( )
@@ -298,7 +298,7 @@ function gameB_update(dt)
 				tetribodies[1]:setLinearVelocity(x, difficulty_speed*5)
 			else
 				local cx, cy = tetribodies[1]:getWorldCenter()
-				tetribodies[1]:applyForce( 0, 20, cx, cy )
+				tetribodies[1]:applyForce( 0, 50, cx, cy )
 			end
 		else
 			if y > difficulty_speed then
@@ -339,40 +339,40 @@ function endblockB()
 		--LOSE--
 		gamestate = "failingB"
 		if musicno < 4 then
-			love.audio.stop(music[musicno])
+			music[musicno]:stop()
 		end
-		love.audio.stop(gameover1)
-		love.audio.play(gameover1)
-	
-		wallshapes[2]:destroy()
-		wallshapes[2] = nil
+		gameover1:stop()
+		gameover1:play()
+
+		wallfixtures[2]:destroy()
+		wallfixtures[2] = nil
 	else
 		--Transfer block from 1 to end of tetribodies
 		tetrikind[highestbody()+1] = tetrikind[1]
-		
+
 		tetriimages[highestbody()+1] = tetriimages[1]
 		tetribodies[highestbody()+1] = tetribodies[1]
-		
+
 		tetrifixtures[highestbody()] = {}
 		tetrishapes[highestbody()] = {}
-		
+
 		for i, v in pairs(tetrifixtures[1]) do
 			tetrishapes[highestbody()][i] = tetrishapes[1][i]
 			tetrishapes[1][i] = nil
-			
+
 			tetrifixtures[highestbody()][i] = tetrifixtures[1][i]
 			tetrifixtures[highestbody()][i]:setUserData({highestbody()})
 			tetrifixtures[1][i] = nil
 		end
-		
+
 		tetribodies[1] = nil
 		---------------------------
 		linesscore = linesscore + 1
 		scorescore = linesscore * 100
-		
-		love.audio.stop(blockfall)
-		love.audio.play(blockfall)
-		
+
+		blockfall:stop()
+		blockfall:play()
+
 		newblock = true
 	end
 end

@@ -24,10 +24,10 @@ function love.load()
 	
 	if fullscreen == false then
 		if scale ~= 5 then
-			love.graphics.setMode( 160*scale, 144*scale, false, vsync, 0 )
+			love.window.setMode( 160*scale, 144*scale, {fullscreen=false, vsync=vsync and 1 or 0, msaa=0} )
 		end
 	else
-		love.graphics.setMode( 0, 0, true, vsync, 0 )
+		love.window.setMode( 0, 0, {fullscreen=true, vsync=vsync and 1 or 0, msaa=0} )
 		love.mouse.setVisible( false )
 		desktopwidth, desktopheight = love.graphics.getWidth(), love.graphics.getHeight()
 		saveoptions()
@@ -93,7 +93,7 @@ function love.load()
 	musicoptions:setVolume( 1 )
 	musicoptions:setLooping( true )
 	
-	boot = love.audio.newSource( "sounds/boot.ogg")
+	boot = love.audio.newSource( "sounds/boot.ogg", "static")
 	blockfall = love.audio.newSource( "sounds/blockfall.ogg", "stream")
 	blockturn = love.audio.newSource( "sounds/turn.ogg", "stream")
 	blockmove = love.audio.newSource( "sounds/move.ogg", "stream")
@@ -133,7 +133,7 @@ function love.load()
 	math.randomseed( os.time() )
 	math.random();math.random();math.random() --discarding some as they seem to tend to unrandomness.
 	
-	love.graphics.setBackgroundColor( 255, 255, 255 )
+	love.graphics.setBackgroundColor( 1, 1, 1 )
 
 	p1wins = 0
 	p2wins = 0
@@ -271,6 +271,7 @@ function loadimages()
 	end
 	
 	--font--
+	love.graphics.setDefaultFilter("nearest", "nearest")
 	tetrisfont = newPaddedImageFont("graphics/font.png", "0123456789abcdefghijklmnopqrstTuvwxyz.,'C-#_>:<! ")
 	whitefont = newPaddedImageFont("graphics/fontwhite.png", "0123456789abcdefghijklmnopqrstTuvwxyz.,'C-#_>:<!+ ")
 	love.graphics.setFont(tetrisfont)
@@ -383,17 +384,19 @@ function newImageData(path, s)
 	for y = 0, height-1 do
 		for x = 0, width-1 do
 			local oldr, oldg, oldb, olda = imagedata:getPixel(x, y)
-			
+
 			if olda ~= 0 then
-				if oldr > 203 and oldr < 213 then --lightgrey
-					local r = 145 + rr*64
-					local g = 145 + rg*64
-					local b = 145 + rb*64
+				-- Colors are now 0-1 range in Love2D 0.11.x
+				local oldr255 = oldr * 255
+				if oldr255 > 203 and oldr255 < 213 then --lightgrey
+					local r = (145 + rr*64) / 255
+					local g = (145 + rg*64) / 255
+					local b = (145 + rb*64) / 255
 					imagedata:setPixel(x, y, r, g, b, olda)
-				elseif oldr > 107 and oldr < 117 then --darkgrey
-					local r = 73 + rr*43
-					local g = 73 + rg*43
-					local b = 73 + rb*43
+				elseif oldr255 > 107 and oldr255 < 117 then --darkgrey
+					local r = (73 + rr*43) / 255
+					local g = (73 + rg*43) / 255
+					local b = (73 + rb*43) / 255
 					imagedata:setPixel(x, y, r, g, b, olda)
 				end
 			end
@@ -405,24 +408,12 @@ end
 
 function newPaddedImage(filename, s)
     local source = newImageData(filename)
-	
+
 	if s then
 		source = scaleImagedata(source, s)
 	end
-	
-    local w, h = source:getWidth(), source:getHeight()
-   
-    -- Find closest power-of-two.
-    local wp = math.pow(2, math.ceil(math.log(w)/math.log(2)))
-    local hp = math.pow(2, math.ceil(math.log(h)/math.log(2)))
-   
-    -- Only pad if needed:
-    if wp ~= w or hp ~= h then
-        local padded = love.image.newImageData(wp, hp)
-        padded:paste(source, 0, 0)
-        return love.graphics.newImage(padded)
-    end
-   
+
+    -- Power-of-two padding not needed in Love2D 0.11.x
     return love.graphics.newImage(source)
 end
 
@@ -444,23 +435,11 @@ function padImagedata(source) --returns image, not imagedata!
 end
 
 function newPaddedImageFont(filename, glyphs)
-    local source = newImageData(filename)
-    local w, h = source:getWidth(), source:getHeight()
-   
-    -- Find closest power-of-two.
-    local wp = math.pow(2, math.ceil(math.log(w)/math.log(2)))
-    local hp = math.pow(2, math.ceil(math.log(h)/math.log(2)))
-   
-    -- Only pad if needed:
-    if wp ~= w or hp ~= h then
-        local padded = love.image.newImageData(wp, hp)
-        padded:paste(source, 0, 0)
-		local image = love.graphics.newImage(padded)
-		image:setFilter("nearest", "nearest")
-        return love.graphics.newImageFont(image, glyphs)
-    end
-	
-    return love.graphics.newImageFont(source, glyphs)
+    -- Use raw image data without hue shifting to preserve separator pixels
+    local source = love.image.newImageData(filename)
+    -- Power-of-two padding not needed in Love2D 0.11.x
+    -- Add 1 pixel extraspacing between characters
+    return love.graphics.newImageFont(source, glyphs, 1)
 end
 
 function scaleImagedata(imagedata, i)
@@ -472,7 +451,7 @@ function scaleImagedata(imagedata, i)
 			local r, g, b, a = imagedata:getPixel(math.floor(x/i), math.floor(y/i))
 			scaled:setPixel(x, y, r, g, b, a)
 		end
-	end	
+	end
 	
 	return scaled
 end
@@ -529,7 +508,7 @@ function loadconfig()
 end
 
 function loadoptions()
-	if love.filesystem.exists("options.txt") then
+	if love.filesystem.getInfo("options.txt") then
 		local s = love.filesystem.read("options.txt")
 		local split1 = s:split("\n")
 		for i = 1, #split1 do
@@ -599,7 +578,8 @@ function saveoptions()
 end
 
 function autosize()
-	local modes = love.graphics.getModes()
+	local modes = love.window.getFullscreenModes()
+	table.sort(modes, function(a, b) return a.width*a.height > b.width*b.height end)
 	desktopwidth, desktopheight = modes[1]["width"], modes[1]["height"]
 end
 
@@ -609,9 +589,9 @@ function togglefullscreen(fullscr)
 	if fullscr == false then
 		scale = suggestedscale
 		physicsscale = scale/4
-		love.graphics.setMode( 160*scale, 144*scale, false, vsync, 0 )
+		love.window.setMode( 160*scale, 144*scale, {fullscreen=false, vsync=vsync and 1 or 0, msaa=0} )
 	else
-		love.graphics.setMode( 0, 0, true, vsync, 16 )
+		love.window.setMode( 0, 0, {fullscreen=true, vsync=vsync and 1 or 0, msaa=16} )
 		desktopwidth, desktopheight = love.graphics.getWidth(), love.graphics.getHeight()
 		suggestedscale = math.min(math.floor((desktopheight-50)/144), math.floor((desktopwidth-10)/160))
 		suggestedscale = math.min(math.floor((desktopheight-50)/144), math.floor((desktopwidth-10)/160))
@@ -635,7 +615,7 @@ function loadhighscores()
 		fileloc = "highscoresB.txt"
 	end
 	
-	if love.filesystem.exists( fileloc ) then
+	if love.filesystem.getInfo( fileloc ) then
 		
 		highdata = love.filesystem.read( fileloc )
 		highdata = highdata:split(";")
@@ -685,7 +665,7 @@ function savehighscores()
 end
 
 function changescale(i)
-	love.graphics.setMode( 160*i, 144*i, false, vsync, 0 )
+	love.window.setMode( 160*i, 144*i, {fullscreen=false, vsync=vsync and 1 or 0, msaa=0} )
 	nextpieceimg = {}
 	for j = 1, 7 do
 		nextpieceimg[j] = newPaddedImage( "graphics/pieces/"..j..".png", i )
@@ -737,24 +717,20 @@ function table2string(mytable)
 	return output
 end
 
-function getPoints2table(shape)
-	x1,y1,x2,y2,x3,y3,x4,y4,x5,y5,x6,y6,x7,y7,x8,y8 = shape:getPoints()
-	if x4 == nil then
-		return {x1,y1,x2,y2,x3,y3}
+function getPoints2table(shape, body)
+	-- In Love2D 0.11.x, shape:getPoints() returns local coordinates
+	-- We need to transform them to world coordinates using the body
+	local points = {shape:getPoints()}
+	if body then
+		local result = {}
+		for i = 1, #points, 2 do
+			local wx, wy = body:getWorldPoint(points[i], points[i+1])
+			result[#result+1] = wx
+			result[#result+1] = wy
+		end
+		return result
 	end
-	if x5 == nil then
-		return {x1,y1,x2,y2,x3,y3,x4,y4}
-	end
-	if x6 == nil then
-		return {x1,y1,x2,y2,x3,y3,x4,y4,x5,y5}
-	end
-	if x7 == nil then
-		return {x1,y1,x2,y2,x3,y3,x4,y4,x5,y5,x6,y6}
-	end
-	if x8 == nil then
-		return {x1,y1,x2,y2,x3,y3,x4,y4,x5,y5,x6,y6,x7,y7}
-	end
-	return     {x1,y1,x2,y2,x3,y3,x4,y4,x5,y5,x6,y6,x7,y7,x8,y8}
+	return points
 end
 
 function getrainbowcolor(i)
@@ -788,38 +764,38 @@ function getrainbowcolor(i)
 	return {r, g, b}
 end
 
-function love.keypressed( key, unicode )
+function love.keypressed( key, scancode, isrepeat )
 	if gamestate == nil then
 		if controls.check("return", key) then
 			gamestate = "title"
 			love.graphics.setBackgroundColor( 0, 0, 0)
-			love.audio.play(musictitle)
+			musictitle:play()
 			oldtime = love.timer.getTime()
 		end
-		
+
 	elseif gamestate == "logo" then
 		if controls.check("return", key) then
 			gamestate = "title"
 			love.graphics.setBackgroundColor( 0, 0, 0)
-			love.audio.play(musictitle)
+			musictitle:play()
 			oldtime = love.timer.getTime()
 		end
-		
+
 	elseif gamestate == "credits" then
 		if controls.check("return", key) then
 			gamestate = "title"
 			love.graphics.setBackgroundColor( 0, 0, 0)
-			love.audio.play(musictitle)
+			musictitle:play()
 			oldtime = love.timer.getTime()
 		end
-		
+
 	elseif gamestate == "title" then
 		if controls.check("return", key) then
 			if playerselection ~= 3 then
 				if soundenabled then
-					love.audio.stop(musictitle)
+					musictitle:stop()
 					if musicno < 4 then
-						love.audio.play(music[musicno])
+						music[musicno]:play()
 					end
 				end
 			end
@@ -830,29 +806,29 @@ function love.keypressed( key, unicode )
 			else
 				gamestate = "options"
 				if soundenabled then
-				love.audio.stop(musictitle)
-				love.audio.play(musicoptions)
+				musictitle:stop()
+				musicoptions:play()
 				end
 				optionsselection = 1
 			end
 		elseif controls.check("escape", key) then
-			love.event.push("q")
+			love.event.push("quit")
 		elseif controls.check("left", key) and playerselection > 1 then
 			playerselection = playerselection - 1
 		elseif controls.check("right", key) and playerselection < 3 then
 			playerselection = playerselection + 1
 		end
-		
-	elseif gamestate == "menu" then	
+
+	elseif gamestate == "menu" then
 		oldmusicno = musicno
 		if controls.check("escape", key) then
 			if musicno < 4 then
-				love.audio.stop(music[musicno])
+				music[musicno]:stop()
 			end
 			gamestate = "title"
 			if soundenabled then
-			love.audio.stop(musictitle)
-			love.audio.play(musictitle)
+			musictitle:stop()
+			musictitle:play()
 			end
 		elseif key == "backspace" then
 			newhighscores()
@@ -908,22 +884,22 @@ function love.keypressed( key, unicode )
 		if selection > 2 and not controls.check("escape", key) then
 			musicno = selection - 2
 			if oldmusicno ~= musicno and oldmusicno ~= 4 then
-				love.audio.stop(music[oldmusicno])
+				music[oldmusicno]:stop()
 			end
 			if musicno < 4 then
-				love.audio.play(music[musicno])
+				music[musicno]:play()
 			end
 		elseif not controls.check("escape", key) then
 			gameno = selection
 			loadhighscores()
 		end
-	
+
 	elseif gamestate == "options" then
 		if controls.check("escape", key) then
 			if soundenabled then
-				love.audio.stop(musicoptions)
-				love.audio.stop(musictitle)
-				love.audio.play(musictitle)
+				musicoptions:stop()
+				musictitle:stop()
+				musictitle:play()
 			end
 			saveoptions()
 			loadimages()
@@ -935,7 +911,7 @@ function love.keypressed( key, unicode )
 			end
 			selectblink = true
 			oldtime = love.timer.getTime()
-			
+
 		elseif controls.check("up", key) then
 			optionsselection = optionsselection - 1
 			if optionsselection == 0 then
@@ -943,7 +919,7 @@ function love.keypressed( key, unicode )
 			end
 			selectblink = true
 			oldtime = love.timer.getTime()
-			
+
 		elseif controls.check("left", key) then
 			if optionsselection == 1 then
 				if volume >= 0.1 then
@@ -953,7 +929,7 @@ function love.keypressed( key, unicode )
 					end
 					changevolume(volume)
 				end
-				
+
 			elseif optionsselection == 3 then
 				if fullscreen == false then
 					if scale > 1 then
@@ -961,21 +937,21 @@ function love.keypressed( key, unicode )
 						changescale(scale)
 					end
 				end
-				
+
 			elseif optionsselection == 4 then
 				if fullscreen == false then
 					togglefullscreen(true)
 				end
-			
+
 			end
-			
+
 		elseif controls.check("right", key) then
 			if optionsselection == 1 then
 				if volume <= 0.9 then
 					volume = volume + 0.1
 					changevolume(volume)
 				end
-				
+
 			elseif optionsselection == 3 then
 				if fullscreen == false then
 					if scale < maxscale then
@@ -983,14 +959,14 @@ function love.keypressed( key, unicode )
 						changescale(scale)
 					end
 				end
-				
+
 			elseif optionsselection == 4 then
 				if fullscreen == true then
 					togglefullscreen(false)
 				end
-				
+
 			end
-			
+
 		elseif controls.check("return", key) then
 			if optionsselection == 1 then
 				volume = 1
@@ -1011,18 +987,18 @@ function love.keypressed( key, unicode )
 					togglefullscreen(false)
 				end
 			end
-			
+
 		end
-	
-	elseif gamestate == "multimenu" then	
+
+	elseif gamestate == "multimenu" then
 		oldmusicno = musicno
 		if controls.check("escape", key) then
 			if musicno < 4 then
-				love.audio.stop(music[musicno])
+				music[musicno]:stop()
 			end
 			gamestate = "title"
-			love.audio.stop(musictitle)
-			love.audio.play(musictitle)
+			musictitle:stop()
+			musictitle:play()
 		elseif controls.check("return", key) then
 			gameBmulti_load()
 		elseif controls.check("left", key) then
@@ -1071,16 +1047,16 @@ function love.keypressed( key, unicode )
 		if selection > 2 and not controls.check("return", key) and not controls.check("escape", key) then
 			musicno = selection - 2
 			if oldmusicno ~= musicno and oldmusicno ~= 4 then
-				love.audio.stop(music[oldmusicno])
+				music[oldmusicno]:stop()
 			end
 			if musicno < 4 then
-				love.audio.play(music[musicno])
+				music[musicno]:play()
 			end
 		elseif not controls.check("return", key) and not controls.check("escape", key) then
 			gameno = selection
 			loadhighscores()
 		end
-			
+
 	elseif gamestate == "gameA" or gamestate == "gameB" or gamestate == "failingA" or gamestate == "failingB" then
 
 		if controls.check("return", key) then
@@ -1088,13 +1064,13 @@ function love.keypressed( key, unicode )
 
 			if pause == true then
 				if musicno < 4 then
-					love.audio.pause(music[musicno])
+					music[musicno]:pause()
 				end
-				love.audio.stop(pausesound)
-				love.audio.play(pausesound)
+				pausesound:stop()
+				pausesound:play()
 			else
 				if musicno < 4 then
-					love.audio.resume(music[musicno])
+					music[musicno]:play()
 				end
 			end
 		end
@@ -1103,60 +1079,60 @@ function love.keypressed( key, unicode )
 				oldtime = love.timer.getTime()
 				gamestate = "menu"
 			end
-			
+
 			if pause == false and (cuttingtimer == lineclearduration or gamestate == "gameB") then
 				--if key == "up" then --STOP ROTATION OF BLOCK (makes it too easy..)
 				--	tetribodies[counter]:setAngularVelocity(0)
 				--end
 				if controls.check("left", key) or controls.check("right", key) then
-					love.audio.stop(blockmove)
-					love.audio.play(blockmove)
+					blockmove:stop()
+					blockmove:play()
 				elseif controls.check("rotateleft", key) or controls.check("rotateright", key) then
-					love.audio.stop(blockturn)
-					love.audio.play(blockturn)
+					blockturn:stop()
+					blockturn:play()
 				end
 			end
 		end
 	elseif gamestate == "gameBmulti" and gamestarted == false then
 		if controls.check("escape", key) then
 			if not fullscreen then
-				love.graphics.setMode( 160*scale, 144*scale, false, vsync, 0 )
+				love.window.setMode( 160*scale, 144*scale, {fullscreen=false, vsync=vsync and 1 or 0, msaa=0} )
 			end
 			gamestate = "multimenu"
 			if musicno < 4 then
-				love.audio.play(music[musicno])
+				music[musicno]:play()
 			end
 		end
 	elseif gamestate == "gameBmulti" and gamestarted == true then
 		if controls.check("escape", key) then
 			if not fullscreen then
-				love.graphics.setMode( 160*scale, 144*scale, false, vsync, 0 )
+				love.window.setMode( 160*scale, 144*scale, {fullscreen=false, vsync=vsync and 1 or 0, msaa=0} )
 			end
 			gamestate = "multimenu"
 		end
 		if controls.check("left", key) or controls.check("right", key) or controls.check("leftp2", key) or controls.check("rightp2", key) then
-			love.audio.stop(blockmove)
-			love.audio.play(blockmove)
+			blockmove:stop()
+			blockmove:play()
 		elseif controls.check("rotateleft", key) or controls.check("rotateright", key) or controls.check("rotaterightp2", key) or controls.check("rotateleftp2", key) then
-			love.audio.stop(blockturn)
-			love.audio.play(blockturn)
+			blockturn:stop()
+			blockturn:play()
 		end
-		
+
 	elseif gamestate == "gameBmulti_results" then
 		if controls.check("return", key) or controls.check("escape", key) then
 			if musicno < 4 then
-				love.audio.stop(musicresults)
-				love.audio.play(music[musicno])
+				musicresults:stop()
+				music[musicno]:play()
 			end
 			if not fullscreen then
-				love.graphics.setMode( 160*scale, 144*scale, false, vsync, 0 )
+				love.window.setMode( 160*scale, 144*scale, {fullscreen=false, vsync=vsync and 1 or 0, msaa=0} )
 			end
 			gamestate = "multimenu"
 		end
-		
+
 	elseif gamestate == "failed" then
-		if controls.check("return", key) or controls.check("escape", key) then 
-			love.audio.stop(gameover2)
+		if controls.check("return", key) or controls.check("escape", key) then
+			gameover2:stop()
 			rocket_load()
 		end
 	elseif gamestate == "highscoreentry" then
@@ -1164,32 +1140,39 @@ function love.keypressed( key, unicode )
 			gamestate = "menu"
 			savehighscores()
 			if musicchanged == true then
-				love.audio.stop(musichighscore)
+				musichighscore:stop()
 			else
-				love.audio.stop(highscoreintro)
+				highscoreintro:stop()
 			end
 			if musicno < 4 then
-				love.audio.play(music[musicno])
+				music[musicno]:play()
 			end
 		elseif key == "backspace" then
 			if highscorename[highscoreno]:len() > 0 then
 				cursorblink = true
 				highscorename[highscoreno] = string.sub(highscorename[highscoreno], 1, highscorename[highscoreno]:len()-1)
 			end
-			
-		elseif whitelist[unicode] == true then
-			if highscorename[highscoreno]:len() < 6 then
-				cursorblink = true
-				highscorename[highscoreno] = highscorename[highscoreno] .. string.char(unicode)
-				love.audio.stop(highscorebeep)
-				love.audio.play(highscorebeep)
-			end
 		end
 	elseif string.sub(gamestate, 1, 6) == "rocket" then
 		if controls.check("return", key) then
-			love.audio.stop(musicrocket1to3)
-			love.audio.stop(musicrocket4)
+			musicrocket1to3:stop()
+			musicrocket4:stop()
 			failed_checkhighscores()
+		end
+	end
+end
+
+-- Handle text input for high score name entry (Love2D 0.11.x)
+function love.textinput(text)
+	if gamestate == "highscoreentry" then
+		local unicode = string.byte(text)
+		if whitelist[unicode] == true then
+			if highscorename[highscoreno]:len() < 6 then
+				cursorblink = true
+				highscorename[highscoreno] = highscorename[highscoreno] .. text
+				highscorebeep:stop()
+				highscorebeep:play()
+			end
 		end
 	end
 end
